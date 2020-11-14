@@ -3,7 +3,6 @@ var Book = require('../models/book');
 var Author = require('../models/author');
 
 const { body, validationResult } = require('express-validator');
-var debug = require('debug')('author');
 
 // Display list of all authors
 exports.author_list = function(req, res) {
@@ -25,7 +24,7 @@ exports.author_detail = function(req, res, next) {
             Author.findById(req.params.id)
                 .exec(callback)
         },
-        author_books: function(callback) {
+        authors_books: function(callback) {
             Book.find({ 'author': req.params.id }, 'title summary')
             .exec(callback)
         },
@@ -37,7 +36,7 @@ exports.author_detail = function(req, res, next) {
             return next(err);
         }
         // Success, render
-        res.render('author_detail', { title: 'Author Detail', author: results.author, author_books: results.author_books } );
+        res.render('author_detail', { title: 'Author Detail', ...results, } );
     });
 }
 
@@ -63,22 +62,23 @@ exports.author_create_post = [
         // Extract the validation errors from request
         const errors = validationResult(req);
 
+        // Create author object with escaped and trimmed data
+        var author = new Author(
+            {
+                ...req.body
+            }
+        );
+
         if (!errors.isEmpty()) {
             // There are errors. Render form again with sanitized values/errors messages
             res.render('author_form', { title: 'New Author', author: req.body, errors: errors.array() });
             return;
         } else {
             // Data from form is valid
-            // Create new author
-            var author = new Author(
-                {
-                    ...req.body
-                }
-            );
             author.save(function (err) {
                 if (err) { next(err); }
                 // Success, redirect to new author record
-                res.redirect('author.url');
+                res.redirect(author.url);
             });
         }
     }
@@ -139,10 +139,7 @@ exports.author_update_get = function(req, res, next) {
             Book.find({ 'author': req.params.id }).exec(callback);
         },
     }, function(err, results) {
-        if (err) {
-            debug('update error:' + err); 
-            return next(err); 
-        }
+        if (err) { return next(err); }
         if (results.author==null) {
             res.redirect('/catalog/authors');
         }
